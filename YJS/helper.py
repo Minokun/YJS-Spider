@@ -5,5 +5,7 @@
 def md5(src):
     import hashlib
     hash = hashlib.md5()
-    hash.update(src.encode('utf-8'))
+    if isinstance(src,str):
+        src = src.encode('utf-8')
+    hash.update(src)
     return hash.hexdigest()
