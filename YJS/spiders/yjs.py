@@ -2,10 +2,9 @@
 import scrapy
 from scrapy.http import Request
 from urllib import parse
-from YJS.helper import md5
 import time
-from YJS.items import YjsOtherItem,YjsSelfItem
-from scrapy.loader import ItemLoader
+from YJS.items import YjsItem, YjsOtherItem, YjsSelfItem
+
 
 class YjsSpider(scrapy.Spider):
     name = 'yjs'
@@ -42,11 +41,12 @@ class YjsSpider(scrapy.Spider):
             type = 1 if tag.find("本站") != -1 else 0
             # 页面链接
             post_url = post_node.xpath("div/h3/a/@href").extract_first()
-            # 抓去详情数据
-            if type:
-                yield Request(url=parse.urljoin(response.url,post_url),meta={"title":title,"tag":tag,"type":type},callback=self.pars_self)
-            else:
-                yield Request(url=parse.urljoin(response.url,post_url),meta={"title":title,"tag":tag},callback=self.pars_other)
+            # 抓取详情数据
+            if title != "":
+                if type:
+                    yield Request(url=parse.urljoin(response.url,post_url),meta={"title":title, "tag":tag, "type":type},callback=self.pars_self)
+                else:
+                    yield Request(url=parse.urljoin(response.url,post_url),meta={"title":title, "tag":tag, "type":type},callback=self.pars_other)
 
             # 变量初始化
             title_selector = ''
@@ -59,83 +59,47 @@ class YjsSpider(scrapy.Spider):
     # 其他网站数据详情获取
     def pars_other(self,response):
 
-        # 实例化item
-        yjs_other_item = YjsOtherItem()
+        item_loader = YjsItem(item=YjsOtherItem(), response=response)
+        item_loader.add_value("type", response.meta.get("type", ""))
+        item_loader.add_value("title", response.meta.get("title", ""))
+        item_loader.add_value("url", response.url)
+        item_loader.add_value("url_md5", response.url)
+        item_loader.add_value("tag", response.meta.get("tag", ""))
+        item_loader.add_xpath("company", "//div[contains(@class,'mleft')]/h1/text()")
+        item_loader.add_xpath("post_date", "//div[contains(@class,'info clearfix')]/ol/li[text()='发布时间：']/u/text()")
+        item_loader.add_xpath("position_type", "//div[contains(@class,'info clearfix')]/ol/li[text()='职位类型：']/u/text()")
+        item_loader.add_xpath("source", "//div[contains(@class,'info clearfix')]/ol/li[text()='来源：']/a/text()")
+        item_loader.add_xpath("position", "//div[contains(@class,'info clearfix')]/ol/li[text()='职位：']/u/text()")
+        item_loader.add_value("major_label", "")
+        item_loader.add_value("content", response.xpath("//div[contains(@class,'job')]").xpath("string(.)").extract_first(""))
+        item_loader.add_value("created_at", int(time.time()))
 
-        type = response.meta.get("type","")
-
-        title = response.meta.get("title","")
-        url = response.url
-        url_md5 = md5(url)
-        tag = response.meta.get("tag","")
-
-        company = response.xpath("//div[contains(@class,'mleft')]/h1/text()").extract_first("")
-        post_date = response.xpath("//div[contains(@class,'info clearfix')]/ol/li[text()='发布时间：']/u/text()").extract_first("")
-        location = response.xpath("//div[contains(@class,'info clearfix')]/ol/li[text()='工作地点：']/u/text()").extract_first("")
-        position_type = response.xpath("//div[contains(@class,'info clearfix')]/ol/li[text()='职位类型：']/u/text()").extract_first("")
-        source = response.xpath("//div[contains(@class,'info clearfix')]/ol/li[text()='来源：']/a/text()").extract_first("")
-        position = response.xpath("//div[contains(@class,'info clearfix')]/ol/li[text()='职位：']/u/text()").extract_first("")
-        major_label = ''
-
-        content_obj = response.xpath("//div[contains(@class,'job')]")
-        content = content_obj.xpath("string(.)").extract_first("")
-
-        created_at = int(time.time())
-
-        yjs_other_item['title'] = title
-        yjs_other_item['url'] = url
-        yjs_other_item['url_md5'] = url_md5
-        yjs_other_item['tag'] = tag
-
+        yjs_other_item = item_loader.load_item()
         yield yjs_other_item
 
 
     # 本站数据详情获取
     def pars_self(self,response):
 
-        import re
+        item_loader = YjsItem(item=YjsSelfItem(), response=response)
+        item_loader.add_value("type", response.meta.get("type", ""))
+        item_loader.add_value("title", response.meta.get("title", ""))
+        item_loader.add_value("url", response.url)
+        item_loader.add_value("url_md5", response.url)
+        item_loader.add_value("tag", response.meta.get("tag", ""))
+        item_loader.add_xpath("company", "//div[contains(@class,'main')]/div[1]/h1/a/text()")
+        item_loader.add_xpath("industry", "//div[contains(@class,'main')]/div[1]/ul/li[1]/span/text()")
+        item_loader.add_xpath("company_size", "//div[contains(@class,'main')]/div[1]/ul/li[2]/span/text()")
+        item_loader.add_xpath("company_type", "//div[contains(@class,'main')]/div[1]/ul/li[3]/span/text()")
+        item_loader.add_value("position_title", response.xpath("//div[contains(@class,'main')]/div[2]/h2").xpath("string(.)").extract_first())
+        item_loader.add_xpath("location", "//div[contains(@class,'main')]/div[2]/div[contains(@class,'job_list')]/ul/li[1]/span/a/text()")
+        item_loader.add_xpath("valid_date", "//div[contains(@class,'main')]/div[2]/div[contains(@class,'job_list')]/ul/li[2]/span/text()")
+        item_loader.add_xpath("recruit_num", "//div[contains(@class,'main')]/div[2]/div[contains(@class,'job_list')]/ul/li[3]/span/text()")
+        item_loader.add_xpath("position_type", "//div[contains(@class,'main')]/div[2]/div[contains(@class,'job_list')]/ul/li[4]/text()")
+        item_loader.add_value("position_desc", response.xpath("//div[contains(@class,'main')]/div[2]/div[contains(@class,'job_list')]/div[contains(@class,'j_i')]").xpath("string(.)").extract_first())
+        item_loader.add_value("company_intro", response.xpath("//div[contains(@class,'main')]/div[4]/p").xpath("string(.)").extract_first())
+        item_loader.add_xpath("company_site", "//div[contains(@class,'main')]/div[4]/ul/li/a/text()")
+        item_loader.add_value("created_at", int(time.time()))
 
-        # 实例化item
-        yjs_self_item = YjsSelfItem()
-
-        type = response.meta.get("type","")
-
-        title = response.meta.get("title", "")
-        url = response.url
-        url_md5 = md5(url)
-        tag = response.meta.get("tag", "")
-
-        company = response.xpath("//div[contains(@class,'main')]/div[1]/h1/a/text()").extract_first()
-        industry = response.xpath("//div[contains(@class,'main')]/div[1]/ul/li[1]/span/text()").extract_first()
-        company_size = response.xpath("//div[contains(@class,'main')]/div[1]/ul/li[2]/span/text()").extract_first()
-        company_type = response.xpath("//div[contains(@class,'main')]/div[1]/ul/li[3]/span/text()").extract_first()
-
-        position_title_obj = response.xpath("//div[contains(@class,'main')]/div[2]/h2")
-        position_title = position_title_obj.xpath("string(.)").extract_first()
-
-        location = response.xpath("//div[contains(@class,'main')]/div[2]/div[contains(@class,'job_list')]/ul/li[1]/span/a/text()").extract_first()
-        valid_date = response.xpath("//div[contains(@class,'main')]/div[2]/div[contains(@class,'job_list')]/ul/li[2]/span/text()").extract_first()
-
-        recruit_num_original = response.xpath("//div[contains(@class,'main')]/div[2]/div[contains(@class,'job_list')]/ul/li[3]/span/text()").extract_first()
-        recruit_num_regular = re.match("([\d]*).*",recruit_num_original)
-        recruit_num = recruit_num_regular.group(1)
-
-        position_type_original = response.xpath("//div[contains(@class,'main')]/div[2]/div[contains(@class,'job_list')]/ul/li[4]/text()").extract_first()
-        position_type_regular = re.match("职位性质：(.*)",position_type_original)
-        position_type = position_type_regular.group(1)
-
-        position_desc_obj = response.xpath("//div[contains(@class,'main')]/div[2]/div[contains(@class,'job_list')]/div[contains(@class,'j_i')]")
-        position_desc = position_desc_obj.xpath("string(.)").extract_first()
-
-        company_intro_obj = response.xpath("//div[contains(@class,'main')]/div[4]/p")
-        company_intro = company_intro_obj.xpath("string(.)").extract_first()
-
-        company_site = response.xpath("//div[contains(@class,'main')]/div[4]/ul/li/a/text()").extract_first()
-        cteated_at = int(time.time())
-
-        yjs_self_item['title'] = title
-        yjs_self_item['url'] = url
-        yjs_self_item['url_md5'] = url_md5
-        yjs_self_item['tag'] = tag
-
+        yjs_self_item = item_loader.load_item()
         yield yjs_self_item
