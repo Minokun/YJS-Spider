@@ -3,13 +3,18 @@ import scrapy
 from scrapy.http import Request
 from urllib import parse
 import time
-from YJS.items import YjsItem, YjsOtherItem, YjsSelfItem
+from YJS.items import YjsItemLoader, YjsOtherItem, YjsSelfItem
 
 
 class YjsSpider(scrapy.Spider):
     name = 'yjs'
     allowed_domains = ['yingjiesheng.com']
-    start_urls = ['http://s.yingjiesheng.com/search.php?word=%E5%BC%80%E5%8F%91+-%E6%88%BF%E5%9C%B0%E4%BA%A7+-%E8%AF%BE%E7%A8%8B+-%E5%9F%B9%E7%94%9F+-%E9%94%80%E5%94%AE+%E6%A0%A1%E6%8B%9B&area=0&do=1']
+    start_urls = [
+        'http://s.yingjiesheng.com/search.php?word=%E5%BC%80%E5%8F%91+-%E5%9C%B0%E4%BA%A7+-%E9%94%80%E5%94%AE+%E6%A0%A1%E6%8B%9B&start=0',
+        'http://s.yingjiesheng.com/search.php?word=%E5%BC%80%E5%8F%91+-%E5%9C%B0%E4%BA%A7+-%E9%94%80%E5%94%AE+%E6%A0%A1%E5%9B%AD%E6%8B%9B%E8%81%98&start=0',
+        'http://s.yingjiesheng.com/search.php?word=%E7%A0%94%E5%8F%91+-%E5%9C%B0%E4%BA%A7+-%E9%94%80%E5%94%AE+%E6%A0%A1%E6%8B%9B&start=0',
+        'http://s.yingjiesheng.com/search.php?word=%E7%A0%94%E5%8F%91+-%E5%9C%B0%E4%BA%A7+-%E9%94%80%E5%94%AE+%E6%A0%A1%E5%9B%AD%E6%8B%9B%E8%81%98&start=0'
+    ]
 
     # 列表页数据获取
     def parse(self, response):
@@ -59,7 +64,7 @@ class YjsSpider(scrapy.Spider):
     # 其他网站数据详情获取
     def pars_other(self,response):
 
-        item_loader = YjsItem(item=YjsOtherItem(), response=response)
+        item_loader = YjsItemLoader(item=YjsOtherItem(), response=response)
         item_loader.add_value("type", response.meta.get("type", ""))
         item_loader.add_value("title", response.meta.get("title", ""))
         item_loader.add_value("url", response.url)
@@ -69,8 +74,8 @@ class YjsSpider(scrapy.Spider):
         item_loader.add_xpath("post_date", "//div[contains(@class,'info clearfix')]/ol/li[text()='发布时间：']/u/text()")
         item_loader.add_xpath("position_type", "//div[contains(@class,'info clearfix')]/ol/li[text()='职位类型：']/u/text()")
         item_loader.add_xpath("source", "//div[contains(@class,'info clearfix')]/ol/li[text()='来源：']/a/text()")
-        item_loader.add_xpath("position", "//div[contains(@class,'info clearfix')]/ol/li[text()='职位：']/u/text()")
-        item_loader.add_value("major_label", "")
+        item_loader.add_xpath("location", "//div[contains(@class,'info clearfix')]/ol/li[text()='职位：']/u/text()")
+        item_loader.add_value("major_label", " ")
         item_loader.add_value("content", response.xpath("//div[contains(@class,'job')]").xpath("string(.)").extract_first(""))
         item_loader.add_value("created_at", int(time.time()))
 
@@ -81,7 +86,15 @@ class YjsSpider(scrapy.Spider):
     # 本站数据详情获取
     def pars_self(self,response):
 
-        item_loader = YjsItem(item=YjsSelfItem(), response=response)
+        company_intro_obj = response.xpath("//div[contains(@class,'main')]/div[4]/p")
+        company_intro = ''
+        for intro_node in company_intro_obj:
+            company_intro += intro_node.xpath("text()").extract_first()
+
+        location_obj = response.xpath("//div[contains(@class,'main')]/div[2]/div[contains(@class,'job_list')]/ul/li[1]/span")
+        location = str(location_obj.xpath("a/text()").extract_first() if location_obj.xpath("a/text()").extract_first() else location_obj.xpath("text()").extract_first())
+
+        item_loader = YjsItemLoader(item=YjsSelfItem(), response=response)
         item_loader.add_value("type", response.meta.get("type", ""))
         item_loader.add_value("title", response.meta.get("title", ""))
         item_loader.add_value("url", response.url)
@@ -92,12 +105,12 @@ class YjsSpider(scrapy.Spider):
         item_loader.add_xpath("company_size", "//div[contains(@class,'main')]/div[1]/ul/li[2]/span/text()")
         item_loader.add_xpath("company_type", "//div[contains(@class,'main')]/div[1]/ul/li[3]/span/text()")
         item_loader.add_value("position_title", response.xpath("//div[contains(@class,'main')]/div[2]/h2").xpath("string(.)").extract_first())
-        item_loader.add_xpath("location", "//div[contains(@class,'main')]/div[2]/div[contains(@class,'job_list')]/ul/li[1]/span/a/text()")
+        item_loader.add_value("location", location)
         item_loader.add_xpath("valid_date", "//div[contains(@class,'main')]/div[2]/div[contains(@class,'job_list')]/ul/li[2]/span/text()")
         item_loader.add_xpath("recruit_num", "//div[contains(@class,'main')]/div[2]/div[contains(@class,'job_list')]/ul/li[3]/span/text()")
         item_loader.add_xpath("position_type", "//div[contains(@class,'main')]/div[2]/div[contains(@class,'job_list')]/ul/li[4]/text()")
         item_loader.add_value("position_desc", response.xpath("//div[contains(@class,'main')]/div[2]/div[contains(@class,'job_list')]/div[contains(@class,'j_i')]").xpath("string(.)").extract_first())
-        item_loader.add_value("company_intro", response.xpath("//div[contains(@class,'main')]/div[4]/p").xpath("string(.)").extract_first())
+        item_loader.add_value("company_intro", company_intro)
         item_loader.add_xpath("company_site", "//div[contains(@class,'main')]/div[4]/ul/li/a/text()")
         item_loader.add_value("created_at", int(time.time()))
 
