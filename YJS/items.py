@@ -83,6 +83,7 @@ class YjsOtherItem(scrapy.Item):
     company = scrapy.Field()
     post_date = scrapy.Field()
     location = scrapy.Field()
+    position_title = scrapy.Field()
     position_type = scrapy.Field()
     source = scrapy.Field()
     major_label = scrapy.Field()

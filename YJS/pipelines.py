@@ -56,6 +56,7 @@ class YjsPipeline(object):
             if self.KeyJudge(item, "company"):
                 location = self.KeyJudge(item, 'location')
                 major_label = self.KeyJudge(item, 'major_label')
+                position_title = self.KeyJudge(item, 'position_title')
 
                 insert_sql = """
                     insert into yjs_other(
@@ -66,12 +67,13 @@ class YjsPipeline(object):
                     company,
                     post_date,
                     location,
+                    position_title,
                     position_type,
                     source,
                     major_label,
                     content,
                     created_at)
-                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 """
                 cursor.execute(insert_sql, (
                     item['url'],
@@ -81,6 +83,7 @@ class YjsPipeline(object):
                     item['company'],
                     item['post_date'],
                     location,
+                    position_title,
                     item['position_type'],
                     item['source'],
                     major_label,
